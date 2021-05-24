@@ -18,6 +18,7 @@ import Json.Decode as Json
 import OAuth
 import OAuth.AuthorizationCode.PKCE as OAuth
 import Url exposing (Protocol(..), Url)
+import Util exposing (done)
 
 
 
@@ -110,9 +111,7 @@ init mflags origin navigationKey =
     in
     case OAuth.parseCode origin of
         OAuth.Empty ->
-            ( { flow = Idle, redirectUri = redirectUri }
-            , Cmd.none
-            )
+            done { flow = Idle, redirectUri = redirectUri }
 
         OAuth.Success { code, state } ->
             case mflags of
@@ -207,7 +206,7 @@ update msg model =
             signOutRequested model
 
         _ ->
-            ( model, Cmd.none )
+            done model
 
 
 signInRequested : Model -> ( Model, Cmd Msg )
@@ -223,9 +222,7 @@ gotRandomBytes : Model -> List Int -> ( Model, Cmd Msg )
 gotRandomBytes model bytes =
     case convertBytes bytes of
         Nothing ->
-            ( { model | flow = Errored ErrFailedToConvertBytes }
-            , Cmd.none
-            )
+            done { model | flow = Errored ErrFailedToConvertBytes }
 
         Just { state, codeVerifier } ->
             let
@@ -252,19 +249,13 @@ gotAccessToken model authenticationResponse =
         Err (Http.BadBody body) ->
             case Json.decodeString OAuth.defaultAuthenticationErrorDecoder body of
                 Ok error ->
-                    ( { model | flow = Errored <| ErrAuthentication error }
-                    , Cmd.none
-                    )
+                    done { model | flow = Errored <| ErrAuthentication error }
 
                 _ ->
-                    ( { model | flow = Errored ErrHTTPGetAccessToken }
-                    , Cmd.none
-                    )
+                    done { model | flow = Errored ErrHTTPGetAccessToken }
 
         Err _ ->
-            ( { model | flow = Errored ErrHTTPGetAccessToken }
-            , Cmd.none
-            )
+            done { model | flow = Errored ErrHTTPGetAccessToken }
 
         Ok { token } ->
             ( { model | flow = Authenticated token }
@@ -276,14 +267,10 @@ gotCurrentSong : Model -> Result Http.Error SpotifySong -> ( Model, Cmd Msg )
 gotCurrentSong model songResponse =
     case songResponse of
         Err _ ->
-            ( { model | flow = Errored ErrHTTPGetCurrentSong }
-            , Cmd.none
-            )
+            done { model | flow = Errored ErrHTTPGetCurrentSong }
 
         Ok song ->
-            ( { model | flow = Done song }
-            , Cmd.none
-            )
+            done { model | flow = Done song }
 
 
 signOutRequested : Model -> ( Model, Cmd Msg )
