@@ -1,0 +1,19 @@
+{
+  "name": "spotify",
+  "version": "0.0.1",
+  "description": "Playing around with spotify oauth",
+  "author": "Evan Friedenberg",
+  "license": "MIT",
+  "scripts": {
+    "start": "elm-live src/Main.elm --open --start-page=index.html -- --output=elm.js",
+    "postinstall": "husky install && elm-tooling install"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^12.0.1",
+    "@commitlint/config-conventional": "^12.0.1",
+    "@commitlint/prompt-cli": "^12.0.1",
+    "elm-live": "^4.0.2",
+    "elm-tooling": "^1.3.0",
+    "husky": "^6.0.0"
+  }
+}
