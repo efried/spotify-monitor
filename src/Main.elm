@@ -373,7 +373,11 @@ viewCurrentSong { name, albumArt, artists } =
                 |> (++) "Artists: "
                 |> Element.text
             )
-        , Element.image [ Element.centerX ] { src = albumArt, description = "Album Art" }
+        , Element.image
+            [ Element.centerX
+            , Element.width (Element.fill |> Element.maximum 300)
+            ]
+            { src = albumArt, description = "Album Art" }
         , Input.button
             [ Background.color white
             , Border.color spotifyBlack
