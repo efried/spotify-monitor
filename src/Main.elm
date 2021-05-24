@@ -299,7 +299,7 @@ signOutRequested model =
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = "Spotify"
+    { title = "Spotify Monitor"
     , body = [ viewBody model ]
     }
 
@@ -354,7 +354,7 @@ viewIdle =
             [ Element.width (Element.fill |> Element.maximum 200)
             , Element.centerX
             ]
-            { src = "../assets/images/Spotify_Logo_RGB_Black.png"
+            { src = "/assets/images/Spotify_Logo_RGB_Black.png"
             , description = "Spotify Logo"
             }
         ]

@@ -5,7 +5,7 @@
   "author": "Evan Friedenberg",
   "license": "MIT",
   "scripts": {
-    "build": "mkdir -p dist; npx --no-install elm-tooling install; npx --no-install elm make src/Main.elm --optimize --output=dist/elm.js; cp index.html dist",
+    "build": "mkdir -p dist; npx --no-install elm-tooling install; npx --no-install elm make src/Main.elm --optimize --output=dist/elm.js; cp index.html dist; cp -R assets dist",
     "commit": "commit",
     "start": "elm-live src/Main.elm --open --start-page=index.html -- --output=elm.js",
     "postinstall": "husky install && elm-tooling install"
