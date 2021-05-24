@@ -15,6 +15,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
 import Json.Decode as Json
+import Maybe exposing (withDefault)
 import OAuth
 import OAuth.AuthorizationCode.PKCE as OAuth
 import Url exposing (Protocol(..), Url)
@@ -95,8 +96,14 @@ type alias Configuration =
 
 type alias SpotifySong =
     { name : String
-    , albumArt : String
+    , albumArts : List AlbumArt
     , artists : List String
+    }
+
+
+type alias AlbumArt =
+    { width : Int
+    , url : String
     }
 
 
@@ -348,7 +355,7 @@ viewIdle =
 
 
 viewCurrentSong : SpotifySong -> Element.Element Msg
-viewCurrentSong { name, albumArt, artists } =
+viewCurrentSong { name, albumArts, artists } =
     Element.column
         [ Element.centerX
         , Element.centerY
@@ -360,11 +367,16 @@ viewCurrentSong { name, albumArt, artists } =
                 |> (++) "Artists: "
                 |> Element.text
             )
-        , Element.image
-            [ Element.centerX
-            , Element.width (Element.fill |> Element.maximum 300)
-            ]
-            { src = albumArt, description = "Album Art" }
+        , pickAlbumArt albumArts
+            |> Maybe.map
+                (\cover ->
+                    Element.image
+                        [ Element.centerX
+                        , Element.width (Element.fill |> Element.maximum 300)
+                        ]
+                        { src = cover.url, description = "Album Art" }
+                )
+            |> withDefault Element.none
         , Input.button
             [ Background.color white
             , Border.color spotifyBlack
@@ -495,17 +507,28 @@ defaultHttpsUrl =
     }
 
 
+albumArtDecoder : Json.Decoder AlbumArt
+albumArtDecoder =
+    Json.map2 AlbumArt (Json.field "width" Json.int) (Json.field "url" Json.string)
+
+
 spotifySongDecoder : Json.Decoder SpotifySong
 spotifySongDecoder =
     Json.map3 SpotifySong
         (Json.at [ "item", "name" ] Json.string)
         (Json.field "item" <|
             Json.field "album" <|
-                Json.field "images" <|
-                    Json.index 0 <|
-                        Json.field "url" Json.string
+                Json.field "images" (Json.list albumArtDecoder)
         )
         (Json.field "item" <|
             Json.field "album" <|
                 Json.field "artists" (Json.list (Json.field "name" Json.string))
         )
+
+
+pickAlbumArt : List AlbumArt -> Maybe AlbumArt
+pickAlbumArt albumArts =
+    List.filter (\{ width } -> width >= 300) albumArts
+        |> List.sortBy .width
+        |> List.reverse
+        |> List.head
