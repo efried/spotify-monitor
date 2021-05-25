@@ -71,7 +71,7 @@ type Flow
     = Idle
     | Authorized OAuth.AuthorizationCode OAuth.CodeVerifier
     | Authenticated OAuth.Token
-    | Done SpotifySong
+    | Done (Maybe SpotifySong)
     | Errored Error
 
 
@@ -273,11 +273,14 @@ gotAccessToken model authenticationResponse =
 gotCurrentSong : Model -> Result Http.Error SpotifySong -> ( Model, Cmd Msg )
 gotCurrentSong model songResponse =
     case songResponse of
+        Err (Http.BadBody _) ->
+            done { model | flow = Done Nothing }
+
         Err _ ->
             done { model | flow = Errored ErrHTTPGetCurrentSong }
 
         Ok song ->
-            done { model | flow = Done song }
+            done { model | flow = Done (Just song) }
 
 
 signOutRequested : Model -> ( Model, Cmd Msg )
@@ -315,7 +318,12 @@ viewBody model =
                 viewIdle
 
             Done song ->
-                viewCurrentSong song
+                case song of
+                    Just currentSong ->
+                        viewCurrentSong currentSong
+
+                    Nothing ->
+                        viewNoSongPlaying
 
             Errored err ->
                 viewErrored err
@@ -331,19 +339,7 @@ viewIdle =
         , Element.centerY
         , Element.spacingXY 0 20
         ]
-        [ Input.button
-            [ Background.color white
-            , Border.color spotifyBlack
-            , Border.width 2
-            , Border.rounded 6
-            , Element.centerX
-            , Element.paddingXY 20 5
-            , Element.width (Element.fill |> Element.maximum 150)
-            , Font.center
-            ]
-            { onPress = Just SignInRequested
-            , label = Element.text "Sign In"
-            }
+        [ styledButton SignInRequested "Sign In"
         , Element.image
             [ Element.width (Element.fill |> Element.maximum 200)
             , Element.centerX
@@ -377,19 +373,40 @@ viewCurrentSong { name, albumArts, artists } =
                         { src = cover.url, description = "Album Art" }
                 )
             |> withDefault Element.none
-        , Input.button
-            [ Background.color white
-            , Border.color spotifyBlack
-            , Border.width 2
-            , Border.rounded 6
-            , Element.centerX
-            , Element.paddingXY 20 5
-            , Element.width (Element.fill |> Element.maximum 150)
-            , Font.center
+        , styledButton SignOutRequested "Sign Out"
+        ]
+
+
+styledButton : Msg -> String -> Element.Element Msg
+styledButton msg label =
+    Input.button
+        [ Background.color white
+        , Border.color spotifyBlack
+        , Border.width 2
+        , Border.rounded 6
+        , Element.centerX
+        , Element.paddingXY 20 5
+        , Element.width (Element.fill |> Element.maximum 150)
+        , Font.center
+        ]
+        { onPress = Just msg
+        , label = Element.text label
+        }
+
+
+viewNoSongPlaying : Element.Element Msg
+viewNoSongPlaying =
+    Element.column
+        [ Element.centerX
+        , Element.centerY
+        , Element.spacingXY 0 20
+        ]
+        [ Element.el [ Font.color white ] (Element.text "Nothing is playing")
+        , Element.image
+            [ Element.centerX
             ]
-            { onPress = Just SignOutRequested
-            , label = Element.text "Sign Out"
-            }
+            { src = "/assets/images/static.png", description = "TV Static" }
+        , styledButton SignOutRequested "Sign Out"
         ]
 
 
@@ -509,7 +526,9 @@ defaultHttpsUrl =
 
 albumArtDecoder : Json.Decoder AlbumArt
 albumArtDecoder =
-    Json.map2 AlbumArt (Json.field "width" Json.int) (Json.field "url" Json.string)
+    Json.map2 AlbumArt
+        (Json.field "width" Json.int)
+        (Json.field "url" Json.string)
 
 
 spotifySongDecoder : Json.Decoder SpotifySong
