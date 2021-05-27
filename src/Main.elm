@@ -71,7 +71,7 @@ type alias Model =
 type Flow
     = Idle
     | Authorized OAuth.AuthorizationCode OAuth.CodeVerifier
-    | Authenticated OAuth.Token
+    | Authenticated
     | Done (Maybe SpotifySong)
     | Errored Error
 
@@ -275,7 +275,7 @@ gotAccessToken model authenticationResponse =
             done { model | flow = Errored ErrHTTPGetAccessToken }
 
         Ok { token } ->
-            ( { model | flow = Authenticated token, auth = Just token }
+            ( { model | flow = Authenticated, auth = Just token }
             , getCurrentSong configuration token
             )
 
