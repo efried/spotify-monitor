@@ -63,6 +63,7 @@ configuration =
 
 type alias Model =
     { redirectUri : Url
+    , auth : Maybe OAuth.Token
     , flow : Flow
     }
 
@@ -118,23 +119,23 @@ init mflags origin navigationKey =
     in
     case OAuth.parseCode origin of
         OAuth.Empty ->
-            done { flow = Idle, redirectUri = redirectUri }
+            done { flow = Idle, redirectUri = redirectUri, auth = Nothing }
 
         OAuth.Success { code, state } ->
             case mflags of
                 Nothing ->
-                    ( { flow = Errored ErrStateMismatch, redirectUri = redirectUri }
+                    ( { flow = Errored ErrStateMismatch, redirectUri = redirectUri, auth = Nothing }
                     , clearUrl
                     )
 
                 Just flags ->
                     if state /= Just flags.state then
-                        ( { flow = Errored ErrStateMismatch, redirectUri = redirectUri }
+                        ( { flow = Errored ErrStateMismatch, redirectUri = redirectUri, auth = Nothing }
                         , clearUrl
                         )
 
                     else
-                        ( { flow = Authorized code flags.codeVerifier, redirectUri = redirectUri }
+                        ( { flow = Authorized code flags.codeVerifier, redirectUri = redirectUri, auth = Nothing }
                         , Cmd.batch
                             [ getAccessToken configuration redirectUri code flags.codeVerifier
                             , clearUrl
@@ -142,7 +143,7 @@ init mflags origin navigationKey =
                         )
 
         OAuth.Error error ->
-            ( { flow = Errored <| ErrAuthorization error, redirectUri = redirectUri }
+            ( { flow = Errored <| ErrAuthorization error, redirectUri = redirectUri, auth = Nothing }
             , clearUrl
             )
 
@@ -157,22 +158,23 @@ type Msg
     | GotRandomBytes (List Int)
     | GotAccessToken (Result Http.Error OAuth.AuthenticationSuccess)
     | GotCurrentSong (Result Http.Error SpotifySong)
+    | RefreshRequested
     | SignOutRequested
 
 
 getAccessToken : Configuration -> Url -> OAuth.AuthorizationCode -> OAuth.CodeVerifier -> Cmd Msg
 getAccessToken { clientId, tokenEndpoint } redirectUri code codeVerifier =
-    Http.request <|
-        OAuth.makeTokenRequest GotAccessToken
-            { credentials =
-                { clientId = clientId
-                , secret = Nothing
-                }
-            , code = code
-            , codeVerifier = codeVerifier
-            , url = tokenEndpoint
-            , redirectUri = redirectUri
+    OAuth.makeTokenRequest GotAccessToken
+        { credentials =
+            { clientId = clientId
+            , secret = Nothing
             }
+        , code = code
+        , codeVerifier = codeVerifier
+        , url = tokenEndpoint
+        , redirectUri = redirectUri
+        }
+        |> Http.request
 
 
 getCurrentSong : Configuration -> OAuth.Token -> Cmd Msg
@@ -206,8 +208,16 @@ update msg model =
         ( Authorized _ _, GotAccessToken authenticationResponse ) ->
             gotAccessToken model authenticationResponse
 
-        ( Authenticated _, GotCurrentSong song ) ->
+        ( _, GotCurrentSong song ) ->
             gotCurrentSong model song
+
+        ( Done _, RefreshRequested ) ->
+            case model.auth of
+                Nothing ->
+                    signOutRequested model
+
+                Just token ->
+                    ( model, getCurrentSong configuration token )
 
         ( Done _, SignOutRequested ) ->
             signOutRequested model
@@ -265,7 +275,7 @@ gotAccessToken model authenticationResponse =
             done { model | flow = Errored ErrHTTPGetAccessToken }
 
         Ok { token } ->
-            ( { model | flow = Authenticated token }
+            ( { model | flow = Authenticated token, auth = Just token }
             , getCurrentSong configuration token
             )
 
@@ -373,6 +383,7 @@ viewCurrentSong { name, albumArts, artists } =
                         { src = cover.url, description = "Album Art" }
                 )
             |> withDefault Element.none
+        , styledButton RefreshRequested "Reload"
         , styledButton SignOutRequested "Sign Out"
         ]
 
@@ -406,6 +417,7 @@ viewNoSongPlaying =
             [ Element.centerX
             ]
             { src = "/assets/images/static.png", description = "TV Static" }
+        , styledButton RefreshRequested "Reload"
         , styledButton SignOutRequested "Sign Out"
         ]
 
